@@ -24,13 +24,29 @@ app.get("*", (req, res) => {
 
   // some logic to initialize the store
   // and load data into the store
-  const promises = matchRoutes(Routes, req.path).map(({ route }) =>
-    route.loadData ? route.loadData(store) : null
-  );
+  const promises = matchRoutes(Routes, req.path)
+    .map(({ route }) => (route.loadData ? route.loadData(store) : null))
+    .map((promise) => {
+      if (promise) {
+        return new Promise((resolve, reject) => {
+          promise.then(resolve).catch(resolve);
+        });
+      }
+    });
 
   Promise.all(promises).then(() => {
-    console.log(store.getState());
-    res.send(renderer(req, store));
+    const context = {};
+    const content = renderer(req, store, context);
+
+    if (context.url) {
+      return res.redirect(301, context.url);
+    }
+
+    if (context.notFound) {
+      console.log("not found");
+      res.status(404);
+    }
+    res.send(content);
   });
 });
 
